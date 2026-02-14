@@ -10,7 +10,7 @@ A fast, cross-platform CLI tool to package repositories into ZIP archives with f
 - **Empty directories**: Preserves empty directories in the archive
 - **Flexible excludes**: Multiple ways to exclude files (CLI flags, config files, shorthands)
 - **SHA256 checksum**: Optional checksum computation during archive creation
-- **Cross-platform**: Works on Windows, macOS, and Linux
+- **Cross-platform**: Works on Windows, macOS ___(not tested)___, and Linux ___(not tested)___
 
 ## Installation
 
