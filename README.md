@@ -117,7 +117,7 @@ packager \
 
 ## Configuration Files
 
-## .packagerignore Format
+### .packagerignore Format
 
 `.packagerignore` supports a **subset** of gitignore syntax:
 
