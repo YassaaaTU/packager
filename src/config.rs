@@ -47,8 +47,8 @@ pub struct Args {
     #[arg(short, long, value_name = "DIR")]
     pub output_dir: Option<PathBuf>,
 
-    /// Exclude pattern (path or glob), repeatable
-    #[arg(short, long, value_name = "PATTERN")]
+    /// Exclude pattern (path or glob), repeatable, comma-separated supported
+    #[arg(short, long, value_name = "PATTERN", value_delimiter = ',')]
     pub exclude: Vec<String>,
 
     /// Only include git-tracked files

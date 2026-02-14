@@ -141,6 +141,11 @@ impl ProgressReporter {
         self.counter.load(Ordering::Relaxed)
     }
 
+    /// Get the total count
+    pub fn total(&self) -> usize {
+        self.total
+    }
+
     /// Check if quiet mode is enabled
     pub fn is_quiet(&self) -> bool {
         self.quiet
