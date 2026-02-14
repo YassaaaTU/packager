@@ -3,7 +3,7 @@ name = "packager"
 version = "1.0.0"
 edition = "2021"
 description = "A cross-platform CLI tool to package repositories into ZIP archives"
-license = "MIT"
+license = "GPL-2.0"
 authors = ["Packager Team"]
 
 [dependencies]
