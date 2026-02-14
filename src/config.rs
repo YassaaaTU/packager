@@ -34,6 +34,27 @@ impl std::str::FromStr for CompressionLevel {
     }
 }
 
+/// Parse exclude patterns from a comma-separated string with optional spaces
+fn parse_exclude_patterns(s: &str) -> Result<String, String> {
+    // Just return the string as-is; the merging logic will handle splitting
+    Ok(s.to_string())
+}
+
+/// Merge and split exclude patterns from multiple sources
+fn merge_exclude_patterns(patterns: &[String]) -> Vec<String> {
+    let mut result = Vec::new();
+    for pattern in patterns {
+        // Split by comma and trim whitespace
+        for part in pattern.split(',') {
+            let trimmed = part.trim();
+            if !trimmed.is_empty() {
+                result.push(trimmed.to_string());
+            }
+        }
+    }
+    result
+}
+
 /// CLI arguments for the packager tool
 #[derive(Parser, Debug)]
 #[command(name = "packager")]
@@ -48,7 +69,7 @@ pub struct Args {
     pub output_dir: Option<PathBuf>,
 
     /// Exclude pattern (path or glob), repeatable, comma-separated supported
-    #[arg(short, long, value_name = "PATTERN", value_delimiter = ',')]
+    #[arg(short, long, value_name = "PATTERN", value_parser = parse_exclude_patterns)]
     pub exclude: Vec<String>,
 
     /// Only include git-tracked files
@@ -191,8 +212,8 @@ impl Args {
         // Add excludes from .packagerignore
         excludes.extend(packagerignore_patterns);
 
-        // Add CLI excludes
-        excludes.extend(self.exclude.clone());
+        // Add CLI excludes (with comma-separated pattern support)
+        excludes.extend(merge_exclude_patterns(&self.exclude));
 
         // Add shorthand excludes
         if self.no_packages {
