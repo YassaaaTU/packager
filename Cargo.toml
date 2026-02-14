@@ -1,0 +1,60 @@
+[package]
+name = "packager"
+version = "0.1.0"
+edition = "2021"
+description = "A cross-platform CLI tool to package repositories into ZIP archives"
+license = "MIT"
+authors = ["Packager Team"]
+
+[dependencies]
+# CLI parsing
+clap = { version = "4", features = ["derive", "env"] }
+
+# File system walking and gitignore semantics
+ignore = "0.4"
+globset = "0.4"
+
+# ZIP creation
+zip = { version = "2", default-features = false, features = ["deflate"] }
+flate2 = "1"
+
+# Parallel processing
+rayon = "1"
+
+# Progress bars
+indicatif = "0.17"
+
+# Checksums
+sha2 = "0.10"
+
+# Configuration file support
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Path handling
+path-slash = "0.2"
+normalize-path = "0.2"
+
+# Date/time for default output filename
+chrono = "0.4"
+
+[dev-dependencies]
+# Testing
+tempfile = "3"
+assert_fs = "1"
+predicates = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
