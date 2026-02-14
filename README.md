@@ -117,17 +117,17 @@ packager \
 
 ## Configuration Files
 
-### .packagerignore
+## .packagerignore Format
 
-Create a `.packagerignore` file in your repository root (same format as `.gitignore`):
+`.packagerignore` supports a **subset** of gitignore syntax:
 
-```
-# Comment
-node_modules/
-target/
-*.log
-.DS_Store
-```
+- `#` for comments
+- `pattern/` to match directories
+- `*.ext` for glob patterns
+- Lines starting with `!` are **not supported** (no negation)
+- Anchored patterns (starting with `/`) are **not supported**
+
+For full gitignore compatibility including negation and anchored patterns, use `.packager.toml` with the `exclude` array instead.
 
 ### .packager.toml
 
