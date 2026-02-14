@@ -1,3 +1,17 @@
+> [!NOTE]
+> 🚀 **AI-Generated Project**: This project was created in a single session using the [KiloCode Extension](https://github.com/kilocode/kilocode) for Visual Studio Code, powered by the **GLM-5** large language model.
+>
+> **Context**: At the time of creation (February 14, 2026), GLM-5 had just been released and was available for free with unlimited API calls via [Modal's GLM-5 endpoint](https://modal.com/glm-5-endpoint).
+>
+> **What was generated**: The entire codebase—including CLI implementation, configuration handling, file collection, ZIP creation, and unit tests—was produced from a single comprehensive prompt based on the design plan in [`docs/packager-rust-plan.md`](docs/packager-rust-plan.md).
+>
+> **Post-generation refinements**:
+> - Added comma-separated exclude pattern support (`-e "pattern1, pattern2"`)
+> - Fixed the unused `total` field warning in progress reporter
+> - Enhanced documentation and README
+>
+> 📄 Full generation log: [`docs/kilo_code_task_feb-14-2026_12-32-44-pm.md`](docs/kilo_code_task_feb-14-2026_12-32-44-pm.md)
+
 # Packager
 
 A fast, cross-platform CLI tool to package repositories into ZIP archives with full directory structure preservation and `.gitignore` support.
