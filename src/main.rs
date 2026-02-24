@@ -74,6 +74,12 @@ fn run(args: Args) -> Result<i32> {
     console.verbose(&format!("Excludes: {:?}", config.excludes));
     console.verbose(&format!("Tracked only: {}", config.tracked_only));
     console.verbose(&format!("Deterministic: {}", config.deterministic));
+    console.verbose(&format!("No gitignore: {}", config.no_gitignore));
+
+    // Warn about conflicting flags
+    if config.tracked_only && config.no_gitignore {
+        console.warn("--no-gitignore has no effect when --tracked-only is set");
+    }
 
     // Check git availability
     if config.tracked_only && !is_git_available() {
@@ -96,6 +102,7 @@ fn run(args: Args) -> Result<i32> {
         config.recurse_submodules,
         exclude_matcher,
         !config.no_empty_dirs,
+        config.no_gitignore,
     );
 
     let collection = collector.collect()
