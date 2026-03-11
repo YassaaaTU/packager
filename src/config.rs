@@ -108,6 +108,10 @@ pub struct Args {
     #[arg(long)]
     pub recurse_submodules: bool,
 
+    /// Do not honor .gitignore files
+    #[arg(long)]
+    pub no_gitignore: bool,
+
     /// Suppress all output except errors
     #[arg(short, long)]
     pub quiet: bool,
@@ -142,6 +146,10 @@ pub struct ConfigDefaults {
     /// Skip empty directories by default
     #[serde(default)]
     pub no_empty_dirs: bool,
+
+    /// Do not honor .gitignore files by default
+    #[serde(default)]
+    pub no_gitignore: bool,
 }
 
 /// Merged configuration from CLI and config files
@@ -176,6 +184,9 @@ pub struct Config {
 
     /// Include git submodules
     pub recurse_submodules: bool,
+
+    /// Do not honor .gitignore files
+    pub no_gitignore: bool,
 
     /// Quiet mode
     pub quiet: bool,
@@ -240,8 +251,12 @@ impl Args {
         };
 
         // Determine no_empty_dirs
-        let no_empty_dirs = self.no_empty_dirs 
+        let no_empty_dirs = self.no_empty_dirs
             || config_file.as_ref().map(|c| c.defaults.no_empty_dirs).unwrap_or(false);
+
+        // Determine no_gitignore
+        let no_gitignore = self.no_gitignore
+            || config_file.as_ref().map(|c| c.defaults.no_gitignore).unwrap_or(false);
 
         // Determine output ZIP path
         let zip_path = if let Some(ref zip) = self.zip {
@@ -273,6 +288,7 @@ impl Args {
             compression,
             checksum: self.checksum,
             recurse_submodules: self.recurse_submodules,
+            no_gitignore,
             quiet: self.quiet,
             verbose: self.verbose,
         })
@@ -375,6 +391,7 @@ mod tests {
 exclude = ["packages/Odoo", "graphql"]
 compression = "fast"
 no_empty_dirs = true
+no_gitignore = true
 "#;
         fs::write(&packager_toml_path, content).unwrap();
 
@@ -385,6 +402,7 @@ no_empty_dirs = true
         assert!(config.defaults.exclude.contains(&"graphql".to_string()));
         assert_eq!(config.defaults.compression, Some("fast".to_string()));
         assert!(config.defaults.no_empty_dirs);
+        assert!(config.defaults.no_gitignore);
     }
 
     #[test]

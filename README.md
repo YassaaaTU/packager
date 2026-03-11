@@ -11,6 +11,8 @@
 > - Enhanced documentation and README
 >
 > 📄 Full generation log: [`docs/kilo_code_task_feb-14-2026_12-32-44-pm.md`](docs/kilo_code_task_feb-14-2026_12-32-44-pm.md)
+> 
+> Update 1: add --no-gitignore flag to include ignored files - And some minor logic fixes
 
 # Packager
 
@@ -95,6 +97,12 @@ packager --ignore-package "Odoo, GraphQL"
 # Only git-tracked files
 packager --tracked-only
 
+# Include all files, even those in .gitignore
+packager --no-gitignore
+
+# Combine --no-gitignore with additional excludes
+packager --no-gitignore -e node_modules -e target
+
 # Deterministic output (stable timestamps, sorted entries)
 packager --deterministic
 
@@ -116,6 +124,8 @@ packager --quiet
 # Verbose output
 packager --verbose
 ```
+
+> **Note:** Using `--no-gitignore` together with `--tracked-only` will show a warning, since `--no-gitignore` has no effect when only git-tracked files are being collected.
 
 ### Full Example
 
@@ -152,6 +162,7 @@ For more advanced configuration:
 exclude = ["node_modules", "target", "*.log"]
 compression = "fast"
 no_empty_dirs = false
+no_gitignore = false  # Set to true to include files normally excluded by .gitignore
 ```
 
 ## CLI Reference
@@ -162,6 +173,7 @@ no_empty_dirs = false
 | `--output-dir <DIR>` | `-o` | Directory for output (default: repo root) |
 | `--exclude <PATTERN>` | `-e` | Exclude pattern (repeatable, comma-separated) |
 | `--tracked-only` | `-t` | Only include git-tracked files |
+| `--no-gitignore` | | Include files normally excluded by `.gitignore` |
 | `--list-only` | `-l` | Print file list and exit |
 | `--no-packages` | | Exclude `packages/` directory |
 | `--ignore-package <NAME>` | | Exclude `packages/<name>` (repeatable) |
