@@ -14,22 +14,19 @@ use anyhow::{Context, Result};
 use tracing_subscriber::EnvFilter;
 
 use packager::{
+    collector::{is_git_available, FileCollector},
     config::Args,
-    collector::{FileCollector, is_git_available},
     excludes::ExcludeMatcher,
+    exit_codes,
     progress::Console,
     zipper::Zipper,
-    exit_codes,
 };
 
 fn main() {
     // Initialize logging
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("warn"));
-    
-    tracing_subscriber::fmt()
-        .with_env_filter(env_filter)
-        .init();
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn"));
+
+    tracing_subscriber::fmt().with_env_filter(env_filter).init();
 
     // Parse arguments
     let args = Args::parse_args();
@@ -51,8 +48,7 @@ fn main() {
 
 fn run(args: Args) -> Result<i32> {
     // Load configuration
-    let config = args.load_config()
-        .context("Failed to load configuration")?;
+    let config = args.load_config().context("Failed to load configuration")?;
 
     // Initialize console output
     let console = Console::new(config.quiet, config.verbose);
@@ -88,14 +84,17 @@ fn run(args: Args) -> Result<i32> {
     }
 
     // Create exclude matcher
-    let exclude_matcher = ExcludeMatcher::new(config.excludes.clone())
-        .context("Failed to create exclude matcher")?;
+    let exclude_matcher =
+        ExcludeMatcher::new(config.excludes.clone()).context("Failed to create exclude matcher")?;
 
-    console.verbose(&format!("Exclude patterns: {:?}", exclude_matcher.patterns()));
+    console.verbose(&format!(
+        "Exclude patterns: {:?}",
+        exclude_matcher.patterns()
+    ));
 
     // Collect files
     console.info("Collecting files...");
-    
+
     let collector = FileCollector::new(
         config.root.clone(),
         config.tracked_only,
@@ -105,8 +104,7 @@ fn run(args: Args) -> Result<i32> {
         config.no_gitignore,
     );
 
-    let collection = collector.collect()
-        .context("Failed to collect files")?;
+    let collection = collector.collect().context("Failed to collect files")?;
 
     // Check if we have any files
     if collection.is_empty() {
@@ -116,7 +114,10 @@ fn run(args: Args) -> Result<i32> {
 
     console.verbose(&format!("Found {} files", collection.file_count()));
     if !config.no_empty_dirs {
-        console.verbose(&format!("Found {} empty directories", collection.empty_dir_count()));
+        console.verbose(&format!(
+            "Found {} empty directories",
+            collection.empty_dir_count()
+        ));
     }
 
     // List-only mode
@@ -137,33 +138,33 @@ fn run(args: Args) -> Result<i32> {
     // Create ZIP archive
     console.info(&format!("Creating ZIP archive: {:?}", config.zip_path));
 
-    let zipper = Zipper::new(
-        &config.zip_path,
-        config.compression,
-        config.deterministic,
-    );
+    let zipper = Zipper::new(&config.zip_path, config.compression, config.deterministic);
 
     if config.checksum {
-        let checksum = zipper.zip_with_checksum(&collection)
+        let checksum = zipper
+            .zip_with_checksum(&collection)
             .context("Failed to create ZIP archive")?;
         console.success(&format!("Created: {:?}", config.zip_path));
         console.print(&format!("SHA256: {}", checksum));
     } else {
-        zipper.zip(&collection)
+        zipper
+            .zip(&collection)
             .context("Failed to create ZIP archive")?;
         console.success(&format!("Created: {:?}", config.zip_path));
     }
 
     // Print summary
     if !config.quiet {
-        let output_path = config.zip_path.canonicalize()
+        let output_path = config
+            .zip_path
+            .canonicalize()
             .unwrap_or_else(|_| config.zip_path.clone());
-        
-        let metadata = std::fs::metadata(&output_path)
-            .context("Failed to get output file metadata")?;
-        
+
+        let metadata =
+            std::fs::metadata(&output_path).context("Failed to get output file metadata")?;
+
         let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
-        
+
         console.print(&format!(
             "Packaged {} files ({:.2} MB)",
             collection.file_count(),
@@ -212,7 +213,13 @@ mod tests {
 
     #[test]
     fn test_args_ignore_package() {
-        let args = Args::try_parse_from(["packager", "--ignore-package", "Odoo", "--ignore-package", "GraphQL"]);
+        let args = Args::try_parse_from([
+            "packager",
+            "--ignore-package",
+            "Odoo",
+            "--ignore-package",
+            "GraphQL",
+        ]);
         assert!(args.is_ok());
         let args = args.unwrap();
         assert_eq!(args.ignore_package.len(), 2);

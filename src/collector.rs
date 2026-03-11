@@ -8,7 +8,7 @@
 
 use anyhow::{Context, Result};
 use ignore::{Walk, WalkBuilder};
-use std::collections::{HashSet, BTreeSet};
+use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -99,7 +99,10 @@ impl FileCollector {
             match self.collect_git_all() {
                 Ok(col) => col,
                 Err(e) => {
-                tracing::debug!("Git collection failed, falling back to filesystem walk: {}", e);
+                    tracing::debug!(
+                        "Git collection failed, falling back to filesystem walk: {}",
+                        e
+                    );
                     self.collect_filesystem()?
                 }
             }
@@ -125,7 +128,10 @@ impl FileCollector {
             .context("Failed to execute git ls-files")?;
 
         if !output.status.success() {
-            anyhow::bail!("git ls-files failed: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "git ls-files failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         let files: BTreeSet<PathBuf> = output
@@ -162,7 +168,10 @@ impl FileCollector {
             .context("Failed to execute git ls-files")?;
 
         if !output.status.success() {
-            anyhow::bail!("git ls-files failed: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "git ls-files failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         let files: BTreeSet<PathBuf> = output
@@ -184,13 +193,14 @@ impl FileCollector {
         let mut files = BTreeSet::new();
 
         let walker = self.build_walker();
-        
+
         for result in walker {
             match result {
                 Ok(entry) => {
                     let path = entry.path();
                     if path.is_file() {
-                        let relative = path.strip_prefix(&self.root)
+                        let relative = path
+                            .strip_prefix(&self.root)
                             .context("Failed to strip prefix from path")?;
                         files.insert(relative.to_path_buf());
                     }
@@ -212,22 +222,22 @@ impl FileCollector {
     fn build_walker(&self) -> Walk {
         let mut builder = WalkBuilder::new(&self.root);
         builder
-            .hidden(false)           // Include hidden files
-            .follow_links(false)     // Don't follow symlinks
+            .hidden(false) // Include hidden files
+            .follow_links(false) // Don't follow symlinks
             .same_file_system(true); // Stay on same filesystem
 
         if self.no_gitignore {
             builder
-                .ignore(true)        // Keep .ignore support
-                .git_global(true)    // Keep global git excludes
-                .git_exclude(true)   // Keep .git/info/exclude support
-                .git_ignore(false);  // Ignore repo .gitignore files only
+                .ignore(true) // Keep .ignore support
+                .git_global(true) // Keep global git excludes
+                .git_exclude(true) // Keep .git/info/exclude support
+                .git_ignore(false); // Ignore repo .gitignore files only
         } else {
             builder
-                .ignore(true)        // Use .ignore files (ripgrep-style)
-                .git_global(true)    // Use global gitignore
-                .git_exclude(true)   // Use .git/info/exclude
-                .git_ignore(true);   // Use .gitignore files
+                .ignore(true) // Use .ignore files (ripgrep-style)
+                .git_global(true) // Use global gitignore
+                .git_exclude(true) // Use .git/info/exclude
+                .git_ignore(true); // Use .gitignore files
         }
 
         builder.build()
@@ -239,16 +249,16 @@ impl FileCollector {
             return;
         }
 
-        collection.files.retain(|path| {
-            !self.exclude_matcher.is_excluded(path)
-        });
+        collection
+            .files
+            .retain(|path| !self.exclude_matcher.is_excluded(path));
     }
 
     /// Find empty directories in the repository
     fn find_empty_dirs(&self, collection: &mut FileCollection) -> Result<()> {
         // Collect all directories that have files
         let mut dirs_with_files: HashSet<PathBuf> = HashSet::new();
-        
+
         for file in &collection.files {
             let mut current = file.parent();
             while let Some(dir) = current {
@@ -263,13 +273,14 @@ impl FileCollector {
         let walker = self.build_walker();
 
         let mut all_dirs: BTreeSet<PathBuf> = BTreeSet::new();
-        
+
         for result in walker {
             match result {
                 Ok(entry) => {
                     let path = entry.path();
                     if path.is_dir() {
-                        let relative = path.strip_prefix(&self.root)
+                        let relative = path
+                            .strip_prefix(&self.root)
                             .context("Failed to strip prefix from path")?;
                         if !relative.as_os_str().is_empty() {
                             all_dirs.insert(relative.to_path_buf());
@@ -364,7 +375,7 @@ mod tests {
     #[test]
     fn test_collector_filesystem() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create some files
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
         fs::write(temp_dir.path().join("src/main.rs"), "fn main() {}").unwrap();
@@ -377,11 +388,11 @@ mod tests {
             false,
             exclude_matcher,
             false,
-            false,  // no_gitignore
+            false, // no_gitignore
         );
 
         let collection = collector.collect().unwrap();
-        
+
         assert!(collection.file_count() >= 2);
         assert!(collection.files.contains(&PathBuf::from("src/main.rs")));
         assert!(collection.files.contains(&PathBuf::from("Cargo.toml")));
@@ -390,7 +401,7 @@ mod tests {
     #[test]
     fn test_collector_with_excludes() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create some files
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
         fs::create_dir_all(temp_dir.path().join("target")).unwrap();
@@ -404,19 +415,21 @@ mod tests {
             false,
             exclude_matcher,
             false,
-            false,  // no_gitignore
+            false, // no_gitignore
         );
 
         let collection = collector.collect().unwrap();
-        
+
         assert!(collection.files.contains(&PathBuf::from("src/main.rs")));
-        assert!(!collection.files.contains(&PathBuf::from("target/debug.bin")));
+        assert!(!collection
+            .files
+            .contains(&PathBuf::from("target/debug.bin")));
     }
 
     #[test]
     fn test_collector_empty_dirs() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create files and an empty directory
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
         fs::create_dir_all(temp_dir.path().join("empty")).unwrap();
@@ -428,12 +441,12 @@ mod tests {
             false,
             false,
             exclude_matcher,
-            true,   // include empty dirs
-            false,  // no_gitignore
+            true,  // include empty dirs
+            false, // no_gitignore
         );
 
         let collection = collector.collect().unwrap();
-        
+
         assert!(collection.empty_dirs.contains(&PathBuf::from("empty")));
     }
 
@@ -441,7 +454,7 @@ mod tests {
     fn test_collector_no_gitignore_filesystem() {
         // Test the filesystem fallback path (no git repo)
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create a .gitignore file (but no git repo, so it won't affect filesystem walker)
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
         fs::create_dir_all(temp_dir.path().join("target")).unwrap();
@@ -457,12 +470,14 @@ mod tests {
             false,
             exclude_matcher,
             false,
-            false,  // no_gitignore = false
+            false, // no_gitignore = false
         );
         let collection = collector.collect().unwrap();
         // Without a git repo, filesystem walker doesn't honor gitignore by default
         assert!(collection.files.contains(&PathBuf::from("src/main.rs")));
-        assert!(collection.files.contains(&PathBuf::from("target/debug.bin")));
+        assert!(collection
+            .files
+            .contains(&PathBuf::from("target/debug.bin")));
 
         // Test with no_gitignore = true
         let exclude_matcher = ExcludeMatcher::new(vec![]).unwrap();
@@ -472,11 +487,13 @@ mod tests {
             false,
             exclude_matcher,
             false,
-            true,   // no_gitignore = true
+            true, // no_gitignore = true
         );
         let collection = collector.collect().unwrap();
         assert!(collection.files.contains(&PathBuf::from("src/main.rs")));
-        assert!(collection.files.contains(&PathBuf::from("target/debug.bin")));
+        assert!(collection
+            .files
+            .contains(&PathBuf::from("target/debug.bin")));
         assert!(collection.files.contains(&PathBuf::from(".gitignore")));
     }
 
@@ -484,14 +501,18 @@ mod tests {
     fn test_collector_no_gitignore_git_repo() {
         // Test both git-aware collection and the no-gitignore filesystem walk.
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Initialize a git repository
         let output = std::process::Command::new("git")
             .args(["init"])
             .current_dir(temp_dir.path())
             .output()
             .expect("Failed to run git init");
-        assert!(output.status.success(), "git init failed: {:?}", String::from_utf8_lossy(&output.stderr));
+        assert!(
+            output.status.success(),
+            "git init failed: {:?}",
+            String::from_utf8_lossy(&output.stderr)
+        );
 
         // Configure git user (required for commits)
         let _ = std::process::Command::new("git")
@@ -518,13 +539,15 @@ mod tests {
             false,
             exclude_matcher,
             false,
-            false,  // no_gitignore = false
+            false, // no_gitignore = false
         );
         let collection = collector.collect().unwrap();
         assert!(collection.files.contains(&PathBuf::from("src/main.rs")));
         assert!(collection.files.contains(&PathBuf::from(".gitignore")));
         // target/debug.bin should be excluded by gitignore
-        assert!(!collection.files.contains(&PathBuf::from("target/debug.bin")));
+        assert!(!collection
+            .files
+            .contains(&PathBuf::from("target/debug.bin")));
 
         // Test with no_gitignore = true (should include ignored files and git metadata)
         let exclude_matcher = ExcludeMatcher::new(vec![]).unwrap();
@@ -534,13 +557,17 @@ mod tests {
             false,
             exclude_matcher,
             true,
-            true,   // no_gitignore = true
+            true, // no_gitignore = true
         );
         let collection = collector.collect().unwrap();
         assert!(collection.files.contains(&PathBuf::from("src/main.rs")));
-        assert!(collection.files.contains(&PathBuf::from("target/debug.bin")));
+        assert!(collection
+            .files
+            .contains(&PathBuf::from("target/debug.bin")));
         assert!(collection.files.contains(&PathBuf::from(".gitignore")));
-        assert!(collection.files.contains(&PathBuf::from(".git").join("HEAD")));
+        assert!(collection
+            .files
+            .contains(&PathBuf::from(".git").join("HEAD")));
         assert!(!collection.empty_dirs.contains(&PathBuf::from(".git")));
     }
 
@@ -553,20 +580,32 @@ mod tests {
             .current_dir(temp_dir.path())
             .output()
             .expect("Failed to run git init");
-        assert!(output.status.success(), "git init failed: {:?}", String::from_utf8_lossy(&output.stderr));
+        assert!(
+            output.status.success(),
+            "git init failed: {:?}",
+            String::from_utf8_lossy(&output.stderr)
+        );
 
         fs::create_dir_all(temp_dir.path().join("apps/web/node_modules/pkg")).unwrap();
         fs::create_dir_all(temp_dir.path().join("apps/web/.next/cache")).unwrap();
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
 
-        fs::write(temp_dir.path().join("apps/web/node_modules/pkg/package.json"), "{}").unwrap();
-        fs::write(temp_dir.path().join("apps/web/.next/cache/build.txt"), "cache").unwrap();
+        fs::write(
+            temp_dir
+                .path()
+                .join("apps/web/node_modules/pkg/package.json"),
+            "{}",
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.path().join("apps/web/.next/cache/build.txt"),
+            "cache",
+        )
+        .unwrap();
         fs::write(temp_dir.path().join("src/main.rs"), "fn main() {}\n").unwrap();
 
-        let exclude_matcher = ExcludeMatcher::new(vec![
-            "node_modules".to_string(),
-            ".next".to_string(),
-        ]).unwrap();
+        let exclude_matcher =
+            ExcludeMatcher::new(vec!["node_modules".to_string(), ".next".to_string()]).unwrap();
 
         let collector = FileCollector::new(
             temp_dir.path().to_path_buf(),
@@ -580,8 +619,14 @@ mod tests {
         let collection = collector.collect().unwrap();
 
         assert!(collection.files.contains(&PathBuf::from("src/main.rs")));
-        assert!(collection.files.contains(&PathBuf::from(".git").join("HEAD")));
-        assert!(!collection.files.contains(&PathBuf::from("apps/web/node_modules/pkg/package.json")));
-        assert!(!collection.files.contains(&PathBuf::from("apps/web/.next/cache/build.txt")));
+        assert!(collection
+            .files
+            .contains(&PathBuf::from(".git").join("HEAD")));
+        assert!(!collection
+            .files
+            .contains(&PathBuf::from("apps/web/node_modules/pkg/package.json")));
+        assert!(!collection
+            .files
+            .contains(&PathBuf::from("apps/web/.next/cache/build.txt")));
     }
 }

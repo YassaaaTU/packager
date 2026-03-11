@@ -6,19 +6,19 @@
 //! - Walk directory trees in parallel for file collection
 //! - Create streaming ZIP archives with deterministic output
 
+pub mod checksum;
+pub mod collector;
 pub mod config;
 pub mod excludes;
-pub mod collector;
-pub mod zipper;
-pub mod checksum;
 pub mod progress;
+pub mod zipper;
 
+pub use checksum::ChecksumWriter;
+pub use collector::FileCollector;
 pub use config::Config;
 pub use excludes::ExcludeMatcher;
-pub use collector::FileCollector;
-pub use zipper::Zipper;
-pub use checksum::ChecksumWriter;
 pub use progress::ProgressReporter;
+pub use zipper::Zipper;
 
 /// Exit codes for the CLI
 pub mod exit_codes {

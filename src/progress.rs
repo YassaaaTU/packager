@@ -6,8 +6,8 @@
 //! - Verbose mode support
 
 use indicatif::{ProgressBar, ProgressStyle};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 /// Progress reporter for tracking operations
 pub struct ProgressReporter {
@@ -225,10 +225,10 @@ mod tests {
     #[test]
     fn test_progress_reporter_quiet() {
         let reporter = ProgressReporter::new(100, true, false);
-        
+
         assert!(reporter.is_quiet());
         assert!(!reporter.is_verbose());
-        
+
         // These should not panic in quiet mode
         reporter.inc();
         reporter.set_message("test");
@@ -239,10 +239,10 @@ mod tests {
     #[test]
     fn test_progress_reporter_verbose() {
         let reporter = ProgressReporter::new(100, false, true);
-        
+
         assert!(!reporter.is_quiet());
         assert!(reporter.is_verbose());
-        
+
         reporter.inc();
         assert_eq!(reporter.current(), 1);
     }
@@ -250,7 +250,7 @@ mod tests {
     #[test]
     fn test_progress_reporter_spinner() {
         let reporter = ProgressReporter::spinner(false, false);
-        
+
         reporter.set_message("Processing...");
         reporter.inc();
         reporter.finish();
@@ -259,7 +259,7 @@ mod tests {
     #[test]
     fn test_console() {
         let console = Console::new(false, true);
-        
+
         console.print("test");
         console.verbose("verbose test");
         console.error("error test");
@@ -271,14 +271,14 @@ mod tests {
     #[test]
     fn test_console_quiet() {
         let console = Console::new(true, false);
-        
+
         // These should not panic in quiet mode
         console.print("test");
         console.verbose("verbose test");
         console.warn("warning test");
         console.success("success test");
         console.info("info test");
-        
+
         // Error should still work
         console.error("error test");
     }
@@ -286,13 +286,13 @@ mod tests {
     #[test]
     fn test_progress_counter() {
         let reporter = ProgressReporter::new(10, true, false);
-        
+
         assert_eq!(reporter.current(), 0);
-        
+
         reporter.inc();
         reporter.inc();
         reporter.inc();
-        
+
         assert_eq!(reporter.current(), 3);
     }
 }

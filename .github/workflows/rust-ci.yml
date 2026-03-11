@@ -1,0 +1,84 @@
+name: Rust CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: packager-ubuntu-latest
+            binary_path: target/release/packager
+          - os: windows-latest
+            artifact_name: packager-windows-latest
+            binary_path: target/release/packager.exe
+          - os: macos-latest
+            artifact_name: packager-macos-latest
+            binary_path: target/release/packager
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Use stable Rust
+        run: rustup default stable
+
+      - name: Install rustfmt and clippy components
+        run: rustup component add rustfmt clippy
+
+      - name: Show Rust toolchain versions
+        run: |
+          rustup --version
+          rustc --version
+          cargo --version
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Build debug profile
+        run: cargo build --locked --verbose
+
+      - name: Run test suite
+        run: cargo test --locked --verbose
+
+      - name: Build release profile
+        run: cargo build --locked --release --verbose
+
+      - name: Upload release binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.binary_path }}
+          if-no-files-found: error
