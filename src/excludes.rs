@@ -11,8 +11,10 @@ use std::path::{Path, PathBuf};
 
 /// Matcher for exclude patterns
 pub struct ExcludeMatcher {
-    /// Prefix patterns for directory/file matching
-    prefix_patterns: Vec<String>,
+    /// Simple name patterns that match any path component recursively
+    component_patterns: Vec<String>,
+    /// Relative path prefix patterns rooted at the package root
+    relative_prefix_patterns: Vec<String>,
     /// Glob patterns for wildcard matching
     glob_set: GlobSet,
     /// Original patterns for debugging
@@ -22,15 +24,21 @@ pub struct ExcludeMatcher {
 impl ExcludeMatcher {
     /// Create a new exclude matcher from a list of patterns
     pub fn new(patterns: Vec<String>) -> Result<Self> {
-        let mut prefix_patterns = Vec::new();
+        let mut component_patterns = Vec::new();
+        let mut relative_prefix_patterns = Vec::new();
         let mut glob_builder = GlobSetBuilder::new();
 
         for pattern in &patterns {
             let normalized = normalize_pattern(pattern);
+            let trimmed = normalized.trim_end_matches('/');
 
-            // Check if pattern is a simple prefix (no wildcards)
-            if is_prefix_pattern(&normalized) {
-                prefix_patterns.push(normalized);
+            // Check if pattern is a simple path pattern (no wildcards)
+            if !trimmed.is_empty() && is_prefix_pattern(trimmed) {
+                if trimmed.contains('/') {
+                    relative_prefix_patterns.push(trimmed.to_string());
+                } else {
+                    component_patterns.push(trimmed.to_string());
+                }
             } else {
                 // Add as glob pattern
                 let glob = Glob::new(&normalized)
@@ -43,7 +51,8 @@ impl ExcludeMatcher {
             .context("Failed to build glob set")?;
 
         Ok(Self {
-            prefix_patterns,
+            component_patterns,
+            relative_prefix_patterns,
             glob_set,
             patterns,
         })
@@ -53,14 +62,27 @@ impl ExcludeMatcher {
     pub fn is_excluded<P: AsRef<Path>>(&self, path: P) -> bool {
         let path = path.as_ref();
         let normalized = normalize_path_string(path);
+        let path_components: Vec<&str> = normalized
+            .split('/')
+            .filter(|component| !component.is_empty())
+            .collect();
 
-        // Check prefix patterns
-        for prefix in &self.prefix_patterns {
-            if normalized.starts_with(prefix) || normalized == prefix.trim_end_matches('/') {
+        // Check component patterns recursively anywhere in the path.
+        for component in &self.component_patterns {
+            if path_components.iter().any(|candidate| candidate == component) {
                 return true;
             }
-            // Also check if the path is inside a prefix directory
-            if prefix.ends_with('/') && normalized.starts_with(prefix) {
+        }
+
+        // Check root-relative prefix patterns.
+        for prefix in &self.relative_prefix_patterns {
+            if normalized == *prefix {
+                return true;
+            }
+            if normalized
+                .strip_prefix(prefix)
+                .is_some_and(|remainder| remainder.starts_with('/'))
+            {
                 return true;
             }
         }
@@ -165,10 +187,38 @@ mod tests {
         assert!(matcher.is_excluded("packages/Odoo/__manifest__.py"));
         assert!(matcher.is_excluded("target"));
         assert!(matcher.is_excluded("target/debug"));
+        assert!(matcher.is_excluded("apps/web/node_modules/package.json"));
+        assert!(matcher.is_excluded("apps/api/target/debug/app"));
 
         assert!(!matcher.is_excluded("src/main.rs"));
         assert!(!matcher.is_excluded("packages/Other"));
         assert!(!matcher.is_excluded("Cargo.toml"));
+    }
+
+    #[test]
+    fn test_exclude_matcher_recursive_component_patterns() {
+        let matcher = ExcludeMatcher::new(vec![
+            "node_modules".to_string(),
+            ".next".to_string(),
+            ".git".to_string(),
+        ]).unwrap();
+
+        assert!(matcher.is_excluded("apps/web/node_modules/package.json"));
+        assert!(matcher.is_excluded("apps/web/.next/cache/data.bin"));
+        assert!(matcher.is_excluded(".git/HEAD"));
+
+        assert!(!matcher.is_excluded("apps/web/node_modules-cache/package.json"));
+        assert!(!matcher.is_excluded("apps/web/next.config.js"));
+    }
+
+    #[test]
+    fn test_exclude_matcher_relative_prefix_is_rooted() {
+        let matcher = ExcludeMatcher::new(vec![
+            "packages/Odoo".to_string(),
+        ]).unwrap();
+
+        assert!(matcher.is_excluded("packages/Odoo/__manifest__.py"));
+        assert!(!matcher.is_excluded("apps/packages/Odoo/__manifest__.py"));
     }
 
     #[test]

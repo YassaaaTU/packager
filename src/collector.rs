@@ -89,27 +89,24 @@ impl FileCollector {
 
     /// Collect files from the repository
     pub fn collect(self) -> Result<FileCollection> {
-        // Try git-based collection first
-        let git_result = if self.tracked_only {
-            self.collect_git_tracked()
+        let mut collection = if self.tracked_only {
+            self.collect_git_tracked()?
+        } else if self.no_gitignore {
+            // Use a filesystem walk when gitignore handling is disabled so ignored
+            // files and git metadata are collected as real files, not ghost dirs.
+            self.collect_filesystem()?
         } else {
-            self.collect_git_all()
+            match self.collect_git_all() {
+                Ok(col) => col,
+                Err(e) => {
+                tracing::debug!("Git collection failed, falling back to filesystem walk: {}", e);
+                    self.collect_filesystem()?
+                }
+            }
         };
 
-        // Use git result if successful, otherwise fall back to filesystem walk
-        let mut collection = match git_result {
-            Ok(mut col) => {
-                // Apply user excludes
-                self.apply_excludes(&mut col);
-                col
-            }
-            Err(e) => {
-                tracing::debug!("Git collection failed, falling back to filesystem walk: {}", e);
-                let mut col = self.collect_filesystem()?;
-                self.apply_excludes(&mut col);
-                col
-            }
-        };
+        // Apply user excludes
+        self.apply_excludes(&mut collection);
 
         // Find empty directories if requested
         if self.include_empty_dirs {
@@ -219,15 +216,19 @@ impl FileCollector {
             .follow_links(false)     // Don't follow symlinks
             .same_file_system(true); // Stay on same filesystem
 
-        // Only apply gitignore semantics if no_gitignore is false
-        if !self.no_gitignore {
+        if self.no_gitignore {
+            builder
+                .ignore(true)        // Keep .ignore support
+                .git_global(true)    // Keep global git excludes
+                .git_exclude(true)   // Keep .git/info/exclude support
+                .git_ignore(false);  // Ignore repo .gitignore files only
+        } else {
             builder
                 .ignore(true)        // Use .ignore files (ripgrep-style)
                 .git_global(true)    // Use global gitignore
                 .git_exclude(true)   // Use .git/info/exclude
                 .git_ignore(true);   // Use .gitignore files
         }
-        // Note: WalkBuilder defaults these to false, so no else needed
 
         builder.build()
     }
@@ -258,23 +259,8 @@ impl FileCollector {
             }
         }
 
-        // Walk the filesystem to find all directories
-        let mut builder = WalkBuilder::new(&self.root);
-        builder
-            .hidden(false)
-            .follow_links(false);
-
-        // Only apply gitignore semantics if no_gitignore is false
-        if !self.no_gitignore {
-            builder
-                .ignore(true)        // Use .ignore files (ripgrep-style)
-                .git_global(true)    // Use global gitignore
-                .git_exclude(true)   // Use .git/info/exclude
-                .git_ignore(true);   // Use .gitignore files
-        }
-        // Note: WalkBuilder defaults these to false, so no else needed
-
-        let walker = builder.build();
+        // Walk the filesystem with the same semantics used for file collection.
+        let walker = self.build_walker();
 
         let mut all_dirs: BTreeSet<PathBuf> = BTreeSet::new();
         
@@ -496,7 +482,7 @@ mod tests {
 
     #[test]
     fn test_collector_no_gitignore_git_repo() {
-        // Test the git-based collection path (with git repo)
+        // Test both git-aware collection and the no-gitignore filesystem walk.
         let temp_dir = TempDir::new().unwrap();
         
         // Initialize a git repository
@@ -540,19 +526,62 @@ mod tests {
         // target/debug.bin should be excluded by gitignore
         assert!(!collection.files.contains(&PathBuf::from("target/debug.bin")));
 
-        // Test with no_gitignore = true (should include all files, including ignored ones)
+        // Test with no_gitignore = true (should include ignored files and git metadata)
         let exclude_matcher = ExcludeMatcher::new(vec![]).unwrap();
         let collector = FileCollector::new(
             temp_dir.path().to_path_buf(),
             false,
             false,
             exclude_matcher,
-            false,
+            true,
             true,   // no_gitignore = true
         );
         let collection = collector.collect().unwrap();
         assert!(collection.files.contains(&PathBuf::from("src/main.rs")));
         assert!(collection.files.contains(&PathBuf::from("target/debug.bin")));
         assert!(collection.files.contains(&PathBuf::from(".gitignore")));
+        assert!(collection.files.contains(&PathBuf::from(".git").join("HEAD")));
+        assert!(!collection.empty_dirs.contains(&PathBuf::from(".git")));
+    }
+
+    #[test]
+    fn test_collector_no_gitignore_applies_recursive_excludes() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let output = std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to run git init");
+        assert!(output.status.success(), "git init failed: {:?}", String::from_utf8_lossy(&output.stderr));
+
+        fs::create_dir_all(temp_dir.path().join("apps/web/node_modules/pkg")).unwrap();
+        fs::create_dir_all(temp_dir.path().join("apps/web/.next/cache")).unwrap();
+        fs::create_dir_all(temp_dir.path().join("src")).unwrap();
+
+        fs::write(temp_dir.path().join("apps/web/node_modules/pkg/package.json"), "{}").unwrap();
+        fs::write(temp_dir.path().join("apps/web/.next/cache/build.txt"), "cache").unwrap();
+        fs::write(temp_dir.path().join("src/main.rs"), "fn main() {}\n").unwrap();
+
+        let exclude_matcher = ExcludeMatcher::new(vec![
+            "node_modules".to_string(),
+            ".next".to_string(),
+        ]).unwrap();
+
+        let collector = FileCollector::new(
+            temp_dir.path().to_path_buf(),
+            false,
+            false,
+            exclude_matcher,
+            true,
+            true,
+        );
+
+        let collection = collector.collect().unwrap();
+
+        assert!(collection.files.contains(&PathBuf::from("src/main.rs")));
+        assert!(collection.files.contains(&PathBuf::from(".git").join("HEAD")));
+        assert!(!collection.files.contains(&PathBuf::from("apps/web/node_modules/pkg/package.json")));
+        assert!(!collection.files.contains(&PathBuf::from("apps/web/.next/cache/build.txt")));
     }
 }
