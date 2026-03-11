@@ -47,8 +47,7 @@ impl ExcludeMatcher {
             }
         }
 
-        let glob_set = glob_builder.build()
-            .context("Failed to build glob set")?;
+        let glob_set = glob_builder.build().context("Failed to build glob set")?;
 
         Ok(Self {
             component_patterns,
@@ -69,7 +68,10 @@ impl ExcludeMatcher {
 
         // Check component patterns recursively anywhere in the path.
         for component in &self.component_patterns {
-            if path_components.iter().any(|candidate| candidate == component) {
+            if path_components
+                .iter()
+                .any(|candidate| candidate == component)
+            {
                 return true;
             }
         }
@@ -129,9 +131,9 @@ fn normalize_pattern(pattern: &str) -> String {
 
 /// Check if a pattern is a simple prefix pattern (no wildcards)
 fn is_prefix_pattern(pattern: &str) -> bool {
-    !pattern.contains('*') 
-        && !pattern.contains('?') 
-        && !pattern.contains('[') 
+    !pattern.contains('*')
+        && !pattern.contains('?')
+        && !pattern.contains('[')
         && !pattern.contains('{')
 }
 
@@ -145,9 +147,7 @@ fn normalize_path_string(path: &Path) -> String {
 
 /// Normalize a path for consistent comparison
 pub fn normalize_path(path: &Path) -> PathBuf {
-    path.components()
-        .filter(|c| c.as_os_str() != ".")
-        .collect()
+    path.components().filter(|c| c.as_os_str() != ".").collect()
 }
 
 #[cfg(test)]
@@ -179,7 +179,8 @@ mod tests {
             "node_modules".to_string(),
             "packages/Odoo".to_string(),
             "target/".to_string(),
-        ]).unwrap();
+        ])
+        .unwrap();
 
         assert!(matcher.is_excluded("node_modules"));
         assert!(matcher.is_excluded("node_modules/package.json"));
@@ -201,7 +202,8 @@ mod tests {
             "node_modules".to_string(),
             ".next".to_string(),
             ".git".to_string(),
-        ]).unwrap();
+        ])
+        .unwrap();
 
         assert!(matcher.is_excluded("apps/web/node_modules/package.json"));
         assert!(matcher.is_excluded("apps/web/.next/cache/data.bin"));
@@ -213,9 +215,7 @@ mod tests {
 
     #[test]
     fn test_exclude_matcher_relative_prefix_is_rooted() {
-        let matcher = ExcludeMatcher::new(vec![
-            "packages/Odoo".to_string(),
-        ]).unwrap();
+        let matcher = ExcludeMatcher::new(vec!["packages/Odoo".to_string()]).unwrap();
 
         assert!(matcher.is_excluded("packages/Odoo/__manifest__.py"));
         assert!(!matcher.is_excluded("apps/packages/Odoo/__manifest__.py"));
@@ -227,7 +227,8 @@ mod tests {
             "*.log".to_string(),
             "*.tmp".to_string(),
             "docs/**/*.md".to_string(),
-        ]).unwrap();
+        ])
+        .unwrap();
 
         assert!(matcher.is_excluded("debug.log"));
         assert!(matcher.is_excluded("error.log"));
@@ -247,7 +248,8 @@ mod tests {
             "*.log".to_string(),
             "packages/Odoo".to_string(),
             "**/test/**".to_string(),
-        ]).unwrap();
+        ])
+        .unwrap();
 
         assert!(matcher.is_excluded("node_modules"));
         assert!(matcher.is_excluded("debug.log"));
@@ -262,7 +264,7 @@ mod tests {
     #[test]
     fn test_exclude_matcher_empty() {
         let matcher = ExcludeMatcher::new(vec![]).unwrap();
-        
+
         assert!(matcher.is_empty());
         assert!(!matcher.is_excluded("anything"));
     }
@@ -282,9 +284,7 @@ mod tests {
     #[test]
     fn test_windows_paths() {
         // Test that Windows paths are handled correctly
-        let matcher = ExcludeMatcher::new(vec![
-            "packages\\Odoo".to_string(),
-        ]).unwrap();
+        let matcher = ExcludeMatcher::new(vec!["packages\\Odoo".to_string()]).unwrap();
 
         // Both forward and backslash paths should match
         assert!(matcher.is_excluded("packages/Odoo"));

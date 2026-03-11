@@ -6,11 +6,11 @@
 //! - Merge of CLI and file-based configuration
 
 use anyhow::{Context, Result};
+use chrono::Local;
 use clap::Parser;
 use serde::Deserialize;
-use std::path::{Path, PathBuf};
 use std::fs;
-use chrono::Local;
+use std::path::{Path, PathBuf};
 
 /// Compression level for ZIP creation
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -29,7 +29,10 @@ impl std::str::FromStr for CompressionLevel {
             "fast" => Ok(Self::Fast),
             "default" => Ok(Self::Default),
             "best" => Ok(Self::Best),
-            _ => Err(format!("Invalid compression level: {}. Expected 'fast', 'default', or 'best'", s)),
+            _ => Err(format!(
+                "Invalid compression level: {}. Expected 'fast', 'default', or 'best'",
+                s
+            )),
         }
     }
 }
@@ -203,7 +206,9 @@ impl Args {
 
     /// Load configuration from .packagerignore and .packager.toml files
     pub fn load_config(&self) -> Result<Config> {
-        let root = self.root.canonicalize()
+        let root = self
+            .root
+            .canonicalize()
             .with_context(|| format!("Failed to resolve root path: {:?}", self.root))?;
 
         // Load .packagerignore if it exists
@@ -252,20 +257,24 @@ impl Args {
 
         // Determine no_empty_dirs
         let no_empty_dirs = self.no_empty_dirs
-            || config_file.as_ref().map(|c| c.defaults.no_empty_dirs).unwrap_or(false);
+            || config_file
+                .as_ref()
+                .map(|c| c.defaults.no_empty_dirs)
+                .unwrap_or(false);
 
         // Determine no_gitignore
         let no_gitignore = self.no_gitignore
-            || config_file.as_ref().map(|c| c.defaults.no_gitignore).unwrap_or(false);
+            || config_file
+                .as_ref()
+                .map(|c| c.defaults.no_gitignore)
+                .unwrap_or(false);
 
         // Determine output ZIP path
         let zip_path = if let Some(ref zip) = self.zip {
             zip.clone()
         } else {
             // Generate default name: <repo>-YYYYMMDD_HHMMSS.zip
-            let repo_name = root.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("repo");
+            let repo_name = root.file_name().and_then(|n| n.to_str()).unwrap_or("repo");
             let timestamp = Local::now().format("%Y%m%d_%H%M%S");
             PathBuf::from(format!("{}-{}.zip", repo_name, timestamp))
         };
@@ -298,7 +307,7 @@ impl Args {
 /// Load .packagerignore file from the repository root
 fn load_packagerignore(root: &Path) -> Result<Vec<String>> {
     let packagerignore_path = root.join(".packagerignore");
-    
+
     if !packagerignore_path.exists() {
         return Ok(Vec::new());
     }
@@ -319,7 +328,7 @@ fn load_packagerignore(root: &Path) -> Result<Vec<String>> {
 /// Load .packager.toml file from the repository root
 fn load_packager_toml(root: &Path) -> Result<Option<ConfigFile>> {
     let packager_toml_path = root.join(".packager.toml");
-    
+
     if !packager_toml_path.exists() {
         return Ok(None);
     }
@@ -342,32 +351,47 @@ mod tests {
 
     #[test]
     fn test_compression_level_from_str() {
-        assert!(matches!(CompressionLevel::from_str("fast"), Ok(CompressionLevel::Fast)));
-        assert!(matches!(CompressionLevel::from_str("default"), Ok(CompressionLevel::Default)));
-        assert!(matches!(CompressionLevel::from_str("best"), Ok(CompressionLevel::Best)));
+        assert!(matches!(
+            CompressionLevel::from_str("fast"),
+            Ok(CompressionLevel::Fast)
+        ));
+        assert!(matches!(
+            CompressionLevel::from_str("default"),
+            Ok(CompressionLevel::Default)
+        ));
+        assert!(matches!(
+            CompressionLevel::from_str("best"),
+            Ok(CompressionLevel::Best)
+        ));
         assert!(CompressionLevel::from_str("invalid").is_err());
     }
 
     #[test]
     fn test_compression_level_case_insensitive() {
-        assert!(matches!(CompressionLevel::from_str("FAST"), Ok(CompressionLevel::Fast)));
-        assert!(matches!(CompressionLevel::from_str("Default"), Ok(CompressionLevel::Default)));
+        assert!(matches!(
+            CompressionLevel::from_str("FAST"),
+            Ok(CompressionLevel::Fast)
+        ));
+        assert!(matches!(
+            CompressionLevel::from_str("Default"),
+            Ok(CompressionLevel::Default)
+        ));
     }
 
     #[test]
     fn test_load_packagerignore() {
         let temp_dir = TempDir::new().unwrap();
         let packagerignore_path = temp_dir.path().join(".packagerignore");
-        
+
         let mut file = fs::File::create(&packagerignore_path).unwrap();
         writeln!(file, "# Comment").unwrap();
         writeln!(file, "node_modules/").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "target/").unwrap();
         writeln!(file, "*.log").unwrap();
 
         let patterns = load_packagerignore(temp_dir.path()).unwrap();
-        
+
         assert_eq!(patterns.len(), 3);
         assert!(patterns.contains(&"node_modules/".to_string()));
         assert!(patterns.contains(&"target/".to_string()));
@@ -385,7 +409,7 @@ mod tests {
     fn test_load_packager_toml() {
         let temp_dir = TempDir::new().unwrap();
         let packager_toml_path = temp_dir.path().join(".packager.toml");
-        
+
         let content = r#"
 [defaults]
 exclude = ["packages/Odoo", "graphql"]
@@ -396,9 +420,12 @@ no_gitignore = true
         fs::write(&packager_toml_path, content).unwrap();
 
         let config = load_packager_toml(temp_dir.path()).unwrap().unwrap();
-        
+
         assert_eq!(config.defaults.exclude.len(), 2);
-        assert!(config.defaults.exclude.contains(&"packages/Odoo".to_string()));
+        assert!(config
+            .defaults
+            .exclude
+            .contains(&"packages/Odoo".to_string()));
         assert!(config.defaults.exclude.contains(&"graphql".to_string()));
         assert_eq!(config.defaults.compression, Some("fast".to_string()));
         assert!(config.defaults.no_empty_dirs);

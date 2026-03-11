@@ -12,8 +12,12 @@
 >
 > 📄 Full generation log: [`docs/kilo_code_task_feb-14-2026_12-32-44-pm.md`](docs/kilo_code_task_feb-14-2026_12-32-44-pm.md)
 > 
-> Update 1: add --no-gitignore flag to include ignored files - And some minor logic fixes
-
+> Update 1: 
+>   - (PR#3)[https://github.com/YassaaaTU/packager/pull/3]: 1st commit - add --no-gitignore flag to include ignored files - And some minor logic fixes
+> Update 2:
+>   - (PR#3)[https://github.com/YassaaaTU/packager/pull/3]: 2nd commit - fix: honor recursive excludes and include real git contents with --no-gitignore
+>   - 2nd commit was done by VSCode Copilot GPT-5.4 in Autopilot (preview) mode
+> Update 3: (PR#4)[https://github.com/YassaaaTU/packager/pull/4]: Add .github/workflows/rust-ci.yml ~ Also done by VSCode Copilot GPT-5.4 in Autopilot (preview) mode
 # Packager
 
 A fast, cross-platform CLI tool to package repositories into ZIP archives with full directory structure preservation and `.gitignore` support.

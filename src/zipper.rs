@@ -81,8 +81,7 @@ impl Zipper {
             self.add_directory(&mut writer, dir_path, options)?;
         }
 
-        writer.finish()
-            .context("Failed to finalize ZIP archive")?;
+        writer.finish().context("Failed to finalize ZIP archive")?;
 
         Ok(())
     }
@@ -114,8 +113,7 @@ impl Zipper {
             self.add_directory(&mut writer, dir_path, options)?;
         }
 
-        writer.finish()
-            .context("Failed to finalize ZIP archive")?;
+        writer.finish().context("Failed to finalize ZIP archive")?;
 
         let checksum = checksum_writer.finalize();
 
@@ -124,12 +122,10 @@ impl Zipper {
 
     /// Build file options for ZIP entries
     fn build_file_options(&self) -> SimpleFileOptions {
-        let mut options = SimpleFileOptions::default()
-            .compression_method(self.compression);
+        let mut options = SimpleFileOptions::default().compression_method(self.compression);
 
         if self.deterministic {
-            options = options
-                .last_modified_time(self.deterministic_time);
+            options = options.last_modified_time(self.deterministic_time);
         } else {
             // Use current time
             if let Some(datetime) = current_datetime() {
@@ -154,20 +150,23 @@ impl Zipper {
         let mut file = File::open(full_path)
             .with_context(|| format!("Failed to open file: {:?}", full_path))?;
 
-        writer.start_file(&archive_name, options)
+        writer
+            .start_file(&archive_name, options)
             .with_context(|| format!("Failed to start ZIP entry: {}", archive_name))?;
 
         // Stream the file content
         let mut buffer = vec![0u8; 8 * 1024]; // 8KB buffer
         loop {
-            let bytes_read = file.read(&mut buffer)
+            let bytes_read = file
+                .read(&mut buffer)
                 .with_context(|| format!("Failed to read file: {:?}", full_path))?;
-            
+
             if bytes_read == 0 {
                 break;
             }
 
-            writer.write_all(&buffer[..bytes_read])
+            writer
+                .write_all(&buffer[..bytes_read])
                 .with_context(|| format!("Failed to write to ZIP: {}", archive_name))?;
         }
 
@@ -187,7 +186,8 @@ impl Zipper {
             dir_name.push('/');
         }
 
-        writer.add_directory(&dir_name, options)
+        writer
+            .add_directory(&dir_name, options)
             .with_context(|| format!("Failed to add directory to ZIP: {}", dir_name))?;
 
         Ok(())
@@ -209,12 +209,10 @@ fn path_to_zip_string(path: &Path) -> String {
 
 /// Get the current datetime in ZIP format
 fn current_datetime() -> Option<zip::DateTime> {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()?;
-    
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).ok()?;
+
     let secs = now.as_secs();
-    
+
     // Convert Unix timestamp to date/time components
     // This is a simplified conversion
     let days = secs / 86400;
@@ -252,14 +250,14 @@ fn days_to_ymd(days: i64) -> (u16, u8, u8) {
     // Find the month
     let mut month = 1u8;
     let mut days_this_year = remaining_days;
-    
+
     for (m, &days) in days_in_month.iter().enumerate() {
         let days_in_this_month = if m == 1 && is_leap_year(year) {
             days + 1
         } else {
             days
         };
-        
+
         if days_this_year < days_in_this_month as i64 {
             month = (m + 1) as u8;
             break;
@@ -280,10 +278,10 @@ fn is_leap_year(year: i64) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
     use std::fs;
     use std::path::PathBuf;
     use tempfile::TempDir;
-    use std::collections::BTreeSet;
 
     #[test]
     fn test_path_to_zip_string() {
@@ -303,10 +301,10 @@ mod tests {
     fn test_days_to_ymd() {
         // Unix epoch
         assert_eq!(days_to_ymd(0), (1970, 1, 1));
-        
+
         // One day later
         assert_eq!(days_to_ymd(1), (1970, 1, 2));
-        
+
         // Some known dates
         let (y, m, d) = days_to_ymd(365); // One year later (1971-01-01)
         assert_eq!(y, 1971);
@@ -318,7 +316,7 @@ mod tests {
     fn test_zipper_creates_archive() {
         let temp_dir = TempDir::new().unwrap();
         let output_path = temp_dir.path().join("test.zip");
-        
+
         // Create test files
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
         fs::write(temp_dir.path().join("src/main.rs"), "fn main() {}").unwrap();
@@ -334,20 +332,16 @@ mod tests {
             root: temp_dir.path().to_path_buf(),
         };
 
-        let zipper = Zipper::new(
-            &output_path,
-            CompressionLevel::Default,
-            false,
-        );
+        let zipper = Zipper::new(&output_path, CompressionLevel::Default, false);
 
         zipper.zip(&collection).unwrap();
-        
+
         assert!(output_path.exists());
-        
+
         // Verify the ZIP contents
         let file = File::open(&output_path).unwrap();
         let mut archive = zip::ZipArchive::new(file).unwrap();
-        
+
         assert_eq!(archive.len(), 2);
         assert!(archive.by_name("src/main.rs").is_ok());
         assert!(archive.by_name("Cargo.toml").is_ok());
@@ -357,7 +351,7 @@ mod tests {
     fn test_zipper_with_empty_dirs() {
         let temp_dir = TempDir::new().unwrap();
         let output_path = temp_dir.path().join("test.zip");
-        
+
         // Create test files and empty directory
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
         fs::create_dir_all(temp_dir.path().join("empty")).unwrap();
@@ -375,20 +369,16 @@ mod tests {
             root: temp_dir.path().to_path_buf(),
         };
 
-        let zipper = Zipper::new(
-            &output_path,
-            CompressionLevel::Default,
-            false,
-        );
+        let zipper = Zipper::new(&output_path, CompressionLevel::Default, false);
 
         zipper.zip(&collection).unwrap();
-        
+
         assert!(output_path.exists());
-        
+
         // Verify the ZIP contents
         let file = File::open(&output_path).unwrap();
         let mut archive = zip::ZipArchive::new(file).unwrap();
-        
+
         assert_eq!(archive.len(), 2);
         assert!(archive.by_name("src/main.rs").is_ok());
         assert!(archive.by_name("empty/").is_ok());
@@ -398,7 +388,7 @@ mod tests {
     fn test_zipper_deterministic() {
         let temp_dir = TempDir::new().unwrap();
         let output_path = temp_dir.path().join("test.zip");
-        
+
         // Create test file
         fs::write(temp_dir.path().join("test.txt"), "content").unwrap();
 
@@ -418,14 +408,14 @@ mod tests {
         );
 
         zipper.zip(&collection).unwrap();
-        
+
         // Verify the ZIP has deterministic timestamp
         let file = File::open(&output_path).unwrap();
         let mut archive = zip::ZipArchive::new(file).unwrap();
-        
+
         let entry = archive.by_name("test.txt").unwrap();
         let modified = entry.last_modified();
-        
+
         // Should be 1980-01-01 00:00:00
         assert_eq!(modified.unwrap().year(), 1980);
         assert_eq!(modified.unwrap().month(), 1);
@@ -436,7 +426,7 @@ mod tests {
     fn test_zipper_with_checksum() {
         let temp_dir = TempDir::new().unwrap();
         let output_path = temp_dir.path().join("test.zip");
-        
+
         // Create test file
         fs::write(temp_dir.path().join("test.txt"), "content").unwrap();
 
@@ -449,14 +439,10 @@ mod tests {
             root: temp_dir.path().to_path_buf(),
         };
 
-        let zipper = Zipper::new(
-            &output_path,
-            CompressionLevel::Default,
-            false,
-        );
+        let zipper = Zipper::new(&output_path, CompressionLevel::Default, false);
 
         let checksum = zipper.zip_with_checksum(&collection).unwrap();
-        
+
         // SHA256 checksum should be a 64-character hex string
         assert_eq!(checksum.len(), 64);
         assert!(checksum.chars().all(|c| c.is_ascii_hexdigit()));
